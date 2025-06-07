@@ -1,0 +1,53 @@
+name: Deploy TuttoPelle Web App to Azure
+
+on:
+  push:
+    branches:
+      - main # Trigger on pushes to the main branch (adjust if you deploy from another branch)
+
+env:
+  AZURE_WEBAPP_NAME: tuttopelleprojectapp
+  AZURE_RESOURCE_GROUP: abrahamzarkinresourcegroup # <-- CONFIRMED YOUR RESOURCE GROUP NAME
+  PACKAGE_PATH: './dist' # <-- ADDED THIS - Confirm this is your build output folder!
+
+jobs:
+  build-and-deploy:
+    # If you used an environment in Azure's federated credentials, specify it here:
+    # environment: production # Uncomment and replace 'production' if you set up a GitHub Environment
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write # Crucial for OIDC to request the JWT
+      contents: read # Required for actions/checkout
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }} # <-- CORRECTED: Use secret name, NOT the raw ID
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }} # <-- CORRECTED: Use secret name, NOT the raw ID
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }} # <-- CORRECTED: Use secret name, NOT the raw ID
+        # audience: api://AzureADTokenExchange # Default, can be specified if needed
+
+    - name: Set up Node.js environment # Assumes your app is Node.js. If not, change this step.
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20' # Match your application's Node.js version
+
+    - name: Install dependencies and Build Application # <-- RENAMED for clarity
+      run: |
+        npm install # This installs project dependencies
+        npm run build # This command builds your application
+
+    # This is the correct step for deploying to Azure Web Apps
+    - name: Deploy to Azure Web App # <-- UNCOMMENTED THIS BLOCK
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_WEBAPP_NAME }}
+        resource-group: ${{ env.AZURE_RESOURCE_GROUP }} # <-- ADDED THIS PARAMETER!
+        # slot-name: 'production' # Keep this commented out if you're deploying directly to the main slot
+        package: ${{ env.PACKAGE_PATH }} # <-- USING THE ENV VARIABLE FOR PACKAGE_PATH
